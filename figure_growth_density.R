@@ -14,7 +14,7 @@ source("format_fishdata.R")
 
 df_growth %>% 
   ggplot() +
-  geom_point(mapping = aes(x = redbreast_sunfish,
+  geom_point(mapping = aes(x = green_sunfish,
                            y = growth)) +
   facet_grid(rows = vars(growth_occasion),
              cols = vars(Species)) +
