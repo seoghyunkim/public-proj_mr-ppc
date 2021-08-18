@@ -7,24 +7,23 @@ library(tidyverse)
 
 # read data ---------------------------------------------------------------
 
-df_pit <- read_csv("data_raw/data_pit.csv")
+df_pit <- read_csv("data_raw/data_pit_sk.csv")
 df_non_target <- read_csv("data_raw/data_non_target.csv")
 
 
 # format for density ------------------------------------------------------
+
 
 df_pit_sunfish <- df_pit %>% 
   mutate(Date = as.Date(Date, format = "%m/%d/%Y")) %>% 
   drop_na(Species) %>% 
   group_by(Occasion, Tag_ID_cor) %>% 
   slice(which.max(Date)) %>% 
-  filter(Species %in% c("redbreast_sunfish",
-                        "bluegill",
-                        "green_sunfish"),
+  filter(Species %in% c("redbreast_sunfish", "bluegill", "green_sunfish"),
          #Occasion == 2,
-         Potential_error != "y",
-         Mortality != "y",
-         Tag_ID_cor != "a900.226001167828")
+         error_corrected %in% c("y", NA),
+         Mortality != "y"
+         )
 
 df_non_target_sunfish <- df_non_target %>% 
   mutate(Comment = ifelse(is.na(Comment),
@@ -38,8 +37,9 @@ df_non_target_sunfish <- df_non_target %>%
   mutate(Species = case_when(Species == "RBS" ~ "redbreast_sunfish",
                              Species == "BLG" ~ "bluegill",
                              Species == "GSF" ~ "green_sunfish"))
-df_non_target_sunfish$Length <-as.numeric(df_non_target_sunfish$Length)
 
+df_non_target_sunfish$Length <-as.numeric(df_non_target_sunfish$Length) # length as numeric value
+  
 df_fish <- df_pit_sunfish %>% 
   bind_rows(df_non_target_sunfish)
 
@@ -58,7 +58,7 @@ df_section <- df_fish %>%
 
 # format for growth -------------------------------------------------------
 
-df_growth <- df_pit_sunfish %>% 
+df_growth_sk <- df_pit_sunfish %>% 
   select(-Time,
          -Site,
          -Recap,
@@ -69,16 +69,19 @@ df_growth <- df_pit_sunfish %>%
               names_from = Occasion,
               values_from = c(Length, Date, Section)) %>%
   mutate(index1 = is.na(Length_1) + is.na(Length_2),
-         index2 = is.na(Length_2) + is.na(Length_3)) %>% 
-  filter(index1 == 0 | index2 == 0) %>% 
+         index2 = is.na(Length_2) + is.na(Length_3),
+         index3 = is.na(Length_3) + is.na(Length_4)) %>% 
+  filter(index1 == 0 | index2 == 0 | index3 == 0) %>% 
   mutate(duration_1 = as.numeric(Date_2 - Date_1),
          duration_2 = as.numeric(Date_3 - Date_2),
+         duration_3 = as.numeric(Date_4 - Date_3),
          growth_1 = 100 * (log(Length_2) - log(Length_1)) / duration_1,
-         growth_2 = 100 * (log(Length_3) - log(Length_2)) / duration_2) %>%
+         growth_2 = 100 * (log(Length_3) - log(Length_2)) / duration_2,
+         growth_3 = 100 * (log(Length_4) - log(Length_3)) / duration_3) %>%
   pivot_longer(cols = c(starts_with("growth")),
                names_to = "growth_occasion",
                values_to = "growth") %>%
-  pivot_longer(cols = c("Section_1", "Section_2"),
+  pivot_longer(cols = c("Section_1", "Section_2", "Section_3"),
                names_to = "section_occasion",
                values_to = "Section") %>%
   separate(col = c("growth_occasion"),
@@ -91,3 +94,7 @@ df_growth <- df_pit_sunfish %>%
   left_join(df_section, by = "Section") %>% 
   drop_na(growth)
 
+df_growth_sk
+
+
+#write.csv(df_growth_sk, "df_growth_sk.csv")
